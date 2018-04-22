@@ -34,7 +34,9 @@ router.post('/login', function (req, res) {
       if (error) throw error;
       if (results != null) { //Se o results for diferente de nulo é porque tem algo nele
         //Cria o token, Primeiro eu crio o json com as informações que vieram do resultado da query e depois passo o segredo
-        jwt.sign({result: results[0].usuarioId}, 'valkyrsecret', function (err, token) {
+        jwt.sign({
+          userId: results[0].usuarioId
+        }, 'valkyrsecret', function (err, token) {
           if (err) throw err;
           //Devolvo o token em um json
           res.json({
@@ -48,28 +50,41 @@ router.post('/login', function (req, res) {
 
 router.post('/getmodulo', function (req, res) {
   var receivedToken = req.body;
+  var moduloId;
+  var moduloNome;
+  var cursoNome;
+  var cursoId;
+  var matriculaSemestre;
 
   jwt.verify(receivedToken.token, 'valkyrsecret', function (err, decoded) {
     if (err) {
       res.end("Não autorizado!!!");
     }
-    var sql = 'SELECT * FROM MODULO WHERE usuarioLogin = ' +
-      connection.escape(userData.userName) + ' AND usuarioSenha = ' +
-      connection.escape(userData.userPassword) + ';';
-
+    // Pega o ID e Nome do Curso
+    var sql = 'SELECT CURSOID, CURSONOME FROM CURSO WHERE CURSOID = (SELECT CURSOID FROM MATRICULA WHERE PESSOAID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + '));'
     connection.query(sql, function (error, results, fields) {
       if (error) throw error;
       if (results != null) {
-        jwt.sign({
-          result: results[0].usuarioId
-        }, 'valkyrsecret', function (err, token) {
-          if (err) throw err;
-          res.json({
-            token: token
-          })
+        cursoId = results[0].cursoId;
+        cursoNome = results[0].cursoNome;
+        // Pega o semestre da matricula
+        var sql = 'SELECT MATRICULASEMESTRE FROM MATRICULA WHERE PESSOAID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + ');'
+        connection.query(sql, function (error, results, fields) {
+          if (error) throw error;
+          if (results != null) {
+            matriculaSemestre = results[0].matriculaSemestre;
+            var sql = 'SELECT MODULOID, MODULONOME FROM MODULO WHERE CURSOID = ' + connection.escape(cursoId) +
+              ' AND MODULOSEMESTRE = ' + connection.escape(matriculaSemestre) + ';';
+            connection.query(sql, function (error, results, fields) {
+              if (error) throw error;
+              if (results != null) {
+                res.json({moduloId : results[0].moduloId ,
+                  moduloNome : results[0].moduloNome});
+              }
+            })
+          }
         })
       }
     })
-    //res.json({result : decoded.result});
   })
 })
