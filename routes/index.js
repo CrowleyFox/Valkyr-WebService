@@ -2,6 +2,7 @@ var express = require('express');
 var router = express.Router();
 var mysql = require('mysql');
 var jwt = require('jsonwebtoken');
+
 var pool = mysql.createPool({ //Cria o pool do MySql
   host: 'localhost',
   user: 'root',
@@ -60,31 +61,35 @@ router.post('/getmodulo', function (req, res) {
     if (err) {
       res.end("Não autorizado!!!");
     }
-    // Pega o ID e Nome do Curso
-    var sql = 'SELECT CURSOID, CURSONOME FROM CURSO WHERE CURSOID = (SELECT CURSOID FROM MATRICULA WHERE PESSOAID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + '));'
-    connection.query(sql, function (error, results, fields) {
-      if (error) throw error;
-      if (results != null) {
-        cursoId = results[0].cursoId;
-        cursoNome = results[0].cursoNome;
-        // Pega o semestre da matricula
-        var sql = 'SELECT MATRICULASEMESTRE FROM MATRICULA WHERE PESSOAID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + ');'
-        connection.query(sql, function (error, results, fields) {
-          if (error) throw error;
-          if (results != null) {
-            matriculaSemestre = results[0].matriculaSemestre;
-            var sql = 'SELECT MODULOID, MODULONOME FROM MODULO WHERE CURSOID = ' + connection.escape(cursoId) +
-              ' AND MODULOSEMESTRE = ' + connection.escape(matriculaSemestre) + ';';
-            connection.query(sql, function (error, results, fields) {
-              if (error) throw error;
-              if (results != null) {
-                res.json({moduloId : results[0].moduloId ,
-                  moduloNome : results[0].moduloNome});
-              }
-            })
-          }
-        })
-      }
-    })
+	pool.getConnection(function(err, connection){
+		if(err) throw err;
+		connection.release();
+		// Pega o ID e Nome do Curso
+		var sql = 'SELECT CURSOID, CURSONOME FROM CURSO WHERE CURSOID = (SELECT CURSOID FROM MATRICULA WHERE PESSOAID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + '));'
+		connection.query(sql, function (error, results, fields) {
+		  if (error) throw error;
+		  if (results != null) {
+			cursoId = results[0].cursoId;
+			cursoNome = results[0].cursoNome;
+			// Pega o semestre da matricula
+			var sql = 'SELECT MATRICULASEMESTRE FROM MATRICULA WHERE PESSOAID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + ');'
+			connection.query(sql, function (error, results, fields) {
+			  if (error) throw error;
+			  if (results != null) {
+				matriculaSemestre = results[0].matriculaSemestre;
+				var sql = 'SELECT MODULOID, MODULONOME FROM MODULO WHERE CURSOID = ' + connection.escape(cursoId) +
+				  ' AND MODULOSEMESTRE = ' + connection.escape(matriculaSemestre) + ';';
+				connection.query(sql, function (error, results, fields) {
+				  if (error) throw error;
+				  if (results != null) {
+					res.json({moduloId : results[0].moduloId ,
+					  moduloNome : results[0].moduloNome});
+				  }
+				})
+			  }
+			})
+		  }
+		})
+	});
   })
 })
