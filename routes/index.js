@@ -19,7 +19,7 @@ router.get('/', function (req, res, next) {
 module.exports = router;
 
 //Permite fazer login. Caso as credenciais estejam corretas, cria-se um token com o ID do usuario.
-router.post('/login', function (req, res) {
+router.post('/api/login', function (req, res) {
   var userData = req.body; //Pega o json recebido e guarda na variavel.
   //Abre uma conecção com o MySql e executa a query
   pool.getConnection(function (err, connection) {
@@ -46,7 +46,7 @@ router.post('/login', function (req, res) {
   })
 })
 
-router.post('/getmodulo', function (req, res) {
+router.post('/api/getmodulo', function (req, res) {
   var receivedToken = req.body;
   var moduloId;
   var moduloNome;
@@ -87,16 +87,18 @@ router.post('/getmodulo', function (req, res) {
                   var resultModulesTasks = {
                     modules: results
                   }
+                  // Devolve as tarefas
                   var sql = 'SELECT CRONOGRAMA_AULA.MODULOID moduleId, TAREFA.TAREFATITULO taskTitle, TAREFA.TAREFANOTAPESO taskGradeWeight, TAREFA.TAREFANOTAVALOR taskGradeValue FROM TAREFA_ARQUIVO ' +
                     'INNER JOIN TAREFA ON TAREFA.TAREFAID = TAREFA_ARQUIVO.TAREFAID ' +
                     'INNER JOIN CRONOGRAMA_AULA ON CRONOGRAMA_AULA.CRONOGRAMA_AULAID = TAREFA.CRONOGRAMA_AULAID ' +
                     'INNER JOIN MATRICULA ON TAREFA_ARQUIVO.TAREFA_ARQUIVOALUNOID = MATRICULA.PESSOAID ' +
                     'WHERE TAREFA_ARQUIVOALUNOID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + ') ' +
-                    'AND MATRICULA.matriculaSemestre = '+ connection.escape(matriculaSemestre) + ' GROUP BY TAREFA.TAREFATITULO';
+                    'AND MATRICULA.matriculaSemestre = ' + connection.escape(matriculaSemestre) + ' GROUP BY TAREFA.TAREFATITULO';
 
                   connection.query(sql, function (error, results, fields) {
                     if (error) throw error;
                     if (results != null) {
+                      // Faz um append no json onde já contém os módulos.
                       resultModulesTasks.tasks = results;
                       res.json(resultModulesTasks);
                     }
@@ -105,6 +107,29 @@ router.post('/getmodulo', function (req, res) {
               })
             }
           })
+        }
+      })
+    })
+  })
+})
+
+router.post('/api/materials', function (req, res) {
+  var receivedToken = req.body;
+  jwt.verify(receivedToken.token, 'valkyrsecret', function (err, decoded) {
+    if (err) {
+      res.end("Forbidden!!!");
+    }
+    pool.getConnection(function (err, connection) {
+      if (err) throw err;
+      // Pega o ID e Nome do Curso
+      console.log(decoded);
+      var sql = 'SELECT MATERIALARQUIVONOME materialFileName, MATERIALARQUIVOID materialFileId, MATERIALARQUIVOEXT materialFileExt FROM MATERIAL ' +
+      'INNER JOIN CRONOGRAMA_AULA ON CRONOGRAMA_AULA.CRONOGRAMA_AULAID = MATERIAL.CRONOGRAMA_AULAID ' +
+      'WHERE MODULOID = ' + connection.escape(receivedToken.moduleId) + ';'
+      connection.query(sql, function (error, results, fields) {
+        if (error) throw error;
+        if (results != null) {
+          res.json(results);
         }
       })
     })
