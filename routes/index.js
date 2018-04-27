@@ -46,7 +46,7 @@ router.post('/api/login', function (req, res) {
   })
 })
 
-router.post('/api/getmodulo', function (req, res) {
+router.post('/api/getmodules', function (req, res) {
   var receivedToken = req.body;
   var moduloId;
   var moduloNome;
@@ -113,7 +113,7 @@ router.post('/api/getmodulo', function (req, res) {
   })
 })
 
-router.post('/api/materials', function (req, res) {
+router.post('/api/getmaterials', function (req, res) {
   var receivedToken = req.body;
   jwt.verify(receivedToken.token, 'valkyrsecret', function (err, decoded) {
     if (err) {
@@ -126,6 +126,34 @@ router.post('/api/materials', function (req, res) {
       var sql = 'SELECT MATERIALARQUIVONOME materialFileName, MATERIALARQUIVOID materialFileId, MATERIALARQUIVOEXT materialFileExt FROM MATERIAL ' +
       'INNER JOIN CRONOGRAMA_AULA ON CRONOGRAMA_AULA.CRONOGRAMA_AULAID = MATERIAL.CRONOGRAMA_AULAID ' +
       'WHERE MODULOID = ' + connection.escape(receivedToken.moduleId) + ';'
+      connection.query(sql, function (error, results, fields) {
+        if (error) throw error;
+        if (results != null) {
+          res.json(results);
+        }
+      })
+    })
+  })
+})
+
+router.post('/api/gettasks', function (req, res) {
+  var receivedToken = req.body;
+  jwt.verify(receivedToken.token, 'valkyrsecret', function (err, decoded) {
+    if (err) {
+      res.end("Forbidden!!!");
+    }
+    pool.getConnection(function (err, connection) {
+      if (err) throw err;
+      // Pega o ID e Nome do Curso
+      console.log(decoded);
+      var sql = 'SELECT TAREFA.TAREFAID taskId, TAREFATITULO taskTitle, TAREFADESCRICAO taskDescription, PESSOANOME teacherName, MODULONOME moduleName, TAREFADATAPOSTAGEM taskPostDate, TAREFADATAENTREGA taskDeliveryLimitDate, TAREFA_ARQUIVODATAENVIO taskDeliveryDate FROM TAREFA_ARQUIVO ' +
+      'INNER JOIN TAREFA ON TAREFA.TAREFAID = TAREFA_ARQUIVO.TAREFAID ' +
+      'INNER JOIN CRONOGRAMA_AULA ON CRONOGRAMA_AULA.CRONOGRAMA_AULAID = TAREFA.CRONOGRAMA_AULAID ' +
+      'INNER JOIN MATRICULA ON TAREFA_ARQUIVO.TAREFA_ARQUIVOALUNOID = MATRICULA.PESSOAID ' +
+      'INNER JOIN MODULO ON CRONOGRAMA_AULA.MODULOID = MODULO.MODULOID ' +
+      'INNER JOIN PESSOA ON PESSOA.PESSOAID = CRONOGRAMA_AULA.CRONOGRAMA_AULAPROFESSORID ' +
+      'WHERE TAREFA_ARQUIVOALUNOID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId)+ ') AND MATRICULA.MATRICULASEMESTRE = (SELECT MATRICULASEMESTRE FROM MATRICULA WHERE PESSOAID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + '))' +
+      'GROUP BY TAREFA.TAREFATITULO;';
       connection.query(sql, function (error, results, fields) {
         if (error) throw error;
         if (results != null) {
