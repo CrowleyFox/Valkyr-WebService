@@ -163,3 +163,29 @@ router.post('/api/gettasks', function (req, res) {
     })
   })
 })
+
+router.post('/api/getschedule', function (req, res) {
+  var receivedToken = req.body;
+  jwt.verify(receivedToken.token, 'valkyrsecret', function (err, decoded) {
+    if (err) {
+      res.end("Forbidden!!!");
+    }
+    pool.getConnection(function (err, connection) {
+      if (err) throw err;
+      // Pega o ID e Nome do Curso
+      console.log(decoded);
+      var sql = 'SELECT CRONOGRAMA_AULASALA scheduleClass, MODULONOME moduleName, DAYOFWEEK(CRONOGRAMA_AULADATA) scheduleDayOfWeek, CRONOGRAMA_AULAHORA scheduleTime, PESSOANOME teacherName FROM CRONOGRAMA_AULA ' +
+      'INNER JOIN MODULO ON MODULO.MODULOID = CRONOGRAMA_AULA.MODULOID ' +
+      'INNER JOIN PESSOA ON PESSOA.PESSOAID = CRONOGRAMA_AULA.CRONOGRAMA_AULAPROFESSORID ' +
+      'INNER JOIN TURMA ON TURMA.TURMAID = CRONOGRAMA_AULA.TURMAID ' +
+      'WHERE CRONOGRAMA_AULA.TURMAID = (SELECT TURMAID FROM MATRICULA WHERE PESSOAID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + '))' +
+      'AND TURMASEMESTRE = (SELECT TURMASEMESTRE FROM MATRICULA WHERE PESSOAID = (SELECT PESSOAID FROM USUARIO WHERE USUARIOID = ' + connection.escape(decoded.userId) + '))';
+      connection.query(sql, function (error, results, fields) {
+        if (error) throw error;
+        if (results != null) {
+          res.json(results);
+        }
+      })
+    })
+  })
+})
